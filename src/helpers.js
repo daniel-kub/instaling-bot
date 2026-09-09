@@ -1,0 +1,99 @@
+const path = require('path');
+const config = require('../config/Config.json');
+const fs = require('fs/promises');
+const {EventEmitter} = require('events');
+const {interval, sendAndClear} = require('./printer.js');
+
+const rootDir = path.join(__dirname, '..');
+const eventer = new EventEmitter();
+
+eventer.on('stopBot', async code => {
+    try {
+        clearInterval(interval);
+        await sendAndClear();
+    } catch (e) {
+        console.error(e);
+    }
+    process.exit(code || 0);
+});
+
+async function prepare() {
+    await Promise.all([
+        fs.rm(path.join(rootDir, 'pages'), {recursive: true, force: true}),
+        fs.rm(path.join(rootDir, 'screenshots'), {recursive: true, force: true})
+    ]);
+    await Promise.all([
+        fs.mkdir(path.join(rootDir, 'pages'), {recursive: true}),
+        fs.mkdir(path.join(rootDir, 'screenshots'), {recursive: true})
+    ]);
+}
+
+async function getText(page, selector) {
+    await checkVisibility(page, selector, config.delays.selector);
+    const element = await page.$(selector);
+    return page.evaluate(element => element.textContent, element);
+}
+
+async function click(page, selector) {
+    await checkVisibility(page, selector, config.delays.selector);
+    return Promise.all([
+        page.click(selector),
+        page.waitForNavigation({waitUntil: 'networkidle0'}).catch(() => {})
+    ]);
+}
+
+async function clickWait(page, selector, wait_min = config.delays.click_min, wait_max = config.delays.click_max) {
+    await checkVisibility(page, selector, config.delays.selector);
+    await page.click(selector);
+    return delay(getRandomInt(wait_min, wait_max));
+}
+
+async function type(page, selector, text, delay) {
+    return page.type(selector, text, {delay: delay ?? getRandomInt(config.delays.type_min, config.delays.type_max)});
+}
+
+async function delay(time) {
+    return new Promise(resolve => setTimeout(resolve, time));
+}
+
+async function savePage(page, i) {
+    if (!page) return;
+    return Promise.all([
+        page.screenshot({path: path.join(rootDir, `screenshots/answer-${i}.png`), fullPage: true}),
+        fs.writeFile(path.join(rootDir, `pages/answer-${i}.html`), await page.evaluate(() => document.documentElement.innerHTML), 'utf-8')
+    ]);
+}
+
+function getRandomInt(min, max) {
+    min = Math.ceil(min);
+    max = Math.floor(max);
+    return Math.floor(Math.random() * (max - min)) + min;
+}
+
+async function checkVisibility(page, selector, delay = 1000) {
+    return page.waitForSelector(selector, {visible: true, timeout: delay});
+}
+
+async function isVisible(page, selector, delay) {
+    return checkVisibility(page, selector, delay)
+        .then(() => true)
+        .catch(() => false);
+}
+
+function canLogin() {
+    return config.login && config.password;
+}
+
+module.exports = {
+    prepare: prepare,
+    getText: getText,
+    click: click,
+    clickWait: clickWait,
+    type: type,
+    delay: delay,
+    getRandomInt: getRandomInt,
+    isVisible: isVisible,
+    canLogin: canLogin,
+    savePage: savePage,
+    eventer
+};

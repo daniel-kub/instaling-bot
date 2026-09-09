@@ -1,0 +1,22 @@
+{
+  "name": "instaling-bot",
+  "version": "2.0.0",
+  "description": "Bot dla automatycznego rozwiązywania słówek na instaling.pl",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "node src/main.js"
+  },
+  "keywords": [],
+  "author": "PanSzelescik",
+  "license": "ISC",
+  "dependencies": {
+    "chalk": "^4.1.2",
+    "discord.js": "^14.27.0",
+    "puppeteer": "^25.10.0",
+    "strip-ansi": "^6.0.1",
+    "unique-random-array": "^2.0.0"
+  },
+  "allowScripts": {
+    "puppeteer@25.10.0": true
+  }
+}
